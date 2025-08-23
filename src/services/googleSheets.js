@@ -7,6 +7,87 @@ class GoogleSheetsService {
     this.spreadsheetId = null
     this.accessToken = null
     this.tokenClient = null
+    this.tokenExpiryTime = null
+    this.refreshToken = null
+    
+    // Try to restore previous authentication on initialization
+    this.restoreAuthenticationState()
+  }
+
+  // Restore authentication state from localStorage
+  restoreAuthenticationState() {
+    try {
+      const savedAuth = localStorage.getItem('googleSheetsAuth')
+      if (savedAuth) {
+        const authData = JSON.parse(savedAuth)
+        const now = new Date().getTime()
+        
+        // Check if token is still valid (with 5 minute buffer)
+        if (authData.expiryTime && authData.expiryTime > now + 300000) {
+          this.accessToken = authData.accessToken
+          this.tokenExpiryTime = authData.expiryTime
+          this.isAuthenticated = true
+          this.spreadsheetId = authData.spreadsheetId || null
+          
+          console.log('Restored authentication from localStorage')
+          
+          // Set the token in gapi client if available
+          if (window.gapi && window.gapi.client) {
+            window.gapi.client.setToken({
+              access_token: this.accessToken
+            })
+          }
+        } else {
+          // Token expired, clear it
+          this.clearAuthenticationState()
+        }
+      }
+    } catch (error) {
+      console.error('Error restoring authentication state:', error)
+      this.clearAuthenticationState()
+    }
+  }
+
+  // Save authentication state to localStorage
+  saveAuthenticationState() {
+    try {
+      const authData = {
+        accessToken: this.accessToken,
+        expiryTime: this.tokenExpiryTime,
+        spreadsheetId: this.spreadsheetId,
+        savedAt: new Date().getTime()
+      }
+      localStorage.setItem('googleSheetsAuth', JSON.stringify(authData))
+      console.log('Authentication state saved to localStorage')
+    } catch (error) {
+      console.error('Error saving authentication state:', error)
+    }
+  }
+
+  // Clear authentication state from localStorage
+  clearAuthenticationState() {
+    try {
+      localStorage.removeItem('googleSheetsAuth')
+      this.isAuthenticated = false
+      this.accessToken = null
+      this.tokenExpiryTime = null
+      this.spreadsheetId = null
+      console.log('Authentication state cleared')
+    } catch (error) {
+      console.error('Error clearing authentication state:', error)
+    }
+  }
+
+  // Check if token needs refresh
+  needsTokenRefresh() {
+    if (!this.accessToken || !this.tokenExpiryTime) {
+      return true
+    }
+    
+    const now = new Date().getTime()
+    const bufferTime = 300000 // 5 minutes buffer
+    
+    return this.tokenExpiryTime <= now + bufferTime
   }
 
   // Initialize Google API
@@ -38,9 +119,25 @@ class GoogleSheetsService {
             console.error('Token error:', response.error)
             throw new Error(`Token error: ${response.error}`)
           }
+          
           this.accessToken = response.access_token
           this.isAuthenticated = true
-          console.log('Authentication successful')
+          
+          // Calculate expiry time (tokens typically last 1 hour)
+          const expiresIn = response.expires_in || 3600 // Default to 1 hour
+          this.tokenExpiryTime = new Date().getTime() + (expiresIn * 1000)
+          
+          // Save authentication state
+          this.saveAuthenticationState()
+          
+          // Set the token in gapi client
+          if (window.gapi && window.gapi.client) {
+            window.gapi.client.setToken({
+              access_token: this.accessToken
+            })
+          }
+          
+          console.log('Authentication successful, token saved')
         },
       })
 
@@ -87,6 +184,13 @@ class GoogleSheetsService {
   async authenticate() {
     return new Promise((resolve, reject) => {
       try {
+        // Check if we already have a valid token
+        if (this.isAuthenticated && !this.needsTokenRefresh()) {
+          console.log('Using existing valid token')
+          resolve(true)
+          return
+        }
+
         if (!this.tokenClient) {
           reject(new Error('Token client not initialized. Call initialize() first.'))
           return
@@ -96,6 +200,7 @@ class GoogleSheetsService {
         this.tokenClient.callback = (response) => {
           if (response.error) {
             console.error('Authentication error:', response.error)
+            this.clearAuthenticationState()
             reject(new Error(`Authentication failed: ${response.error}`))
             return
           }
@@ -103,20 +208,29 @@ class GoogleSheetsService {
           this.accessToken = response.access_token
           this.isAuthenticated = true
           
+          // Calculate expiry time
+          const expiresIn = response.expires_in || 3600
+          this.tokenExpiryTime = new Date().getTime() + (expiresIn * 1000)
+          
+          // Save authentication state
+          this.saveAuthenticationState()
+          
           // Set the access token for gapi client
           window.gapi.client.setToken({
             access_token: this.accessToken
           })
           
-          console.log('User authenticated successfully')
+          console.log('User authenticated successfully, token will expire at:', new Date(this.tokenExpiryTime))
           resolve(true)
         }
 
-        // Request access token
-        this.tokenClient.requestAccessToken({ prompt: 'consent' })
+        // Request access token - only prompt for consent if needed
+        const requestOptions = this.isAuthenticated ? {} : { prompt: 'consent' }
+        this.tokenClient.requestAccessToken(requestOptions)
         
       } catch (error) {
         console.error('Authentication setup failed:', error)
+        this.clearAuthenticationState()
         reject(error)
       }
     })
@@ -131,12 +245,13 @@ class GoogleSheetsService {
         })
       }
       
-      this.isAuthenticated = false
-      this.accessToken = null
-      this.spreadsheetId = null
+      // Clear all authentication state
+      this.clearAuthenticationState()
       
       // Clear the token from gapi client
-      window.gapi.client.setToken(null)
+      if (window.gapi && window.gapi.client) {
+        window.gapi.client.setToken(null)
+      }
       
       console.log('User signed out successfully')
     } catch (error) {
@@ -268,13 +383,24 @@ class GoogleSheetsService {
     }
   }
 
+  // Ensure user is authenticated before making API calls
+  async ensureAuthenticated() {
+    // If we have a valid token, we're good
+    if (this.isAuthenticated && !this.needsTokenRefresh()) {
+      return true
+    }
+
+    // If we need authentication, try to get it
+    console.log('Authentication needed, requesting access...')
+    await this.authenticate()
+    return this.isAuthenticated
+  }
+
   // Add a new expense to the spreadsheet
   async addExpense(expense) {
     try {
-      // Check if we're authenticated and have a valid client
-      if (!this.isAuthenticated || !this.accessToken) {
-        throw new Error('User not authenticated. Please authenticate first.')
-      }
+      // Ensure we're authenticated before proceeding
+      await this.ensureAuthenticated()
       
       if (!window.gapi || !window.gapi.client) {
         throw new Error('Google API client not initialized. Please call initialize() first.')
@@ -362,6 +488,9 @@ class GoogleSheetsService {
   // Get all expenses from the spreadsheet
   async getExpenses() {
     try {
+      // Ensure we're authenticated before proceeding
+      await this.ensureAuthenticated()
+      
       const response = await window.gapi.client.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
         range: 'Expenses!A2:F' // Skip header row
@@ -489,6 +618,8 @@ class GoogleSheetsService {
   // Set spreadsheet ID (for existing spreadsheets)
   setSpreadsheetId(spreadsheetId) {
     this.spreadsheetId = spreadsheetId
+    // Save to localStorage for persistence
+    this.saveAuthenticationState()
   }
 
   // Get current spreadsheet ID
@@ -514,11 +645,15 @@ class GoogleSheetsService {
     return {
       isAuthenticated: this.isAuthenticated,
       hasAccessToken: !!this.accessToken,
+      tokenExpiryTime: this.tokenExpiryTime ? new Date(this.tokenExpiryTime).toLocaleString() : null,
+      needsRefresh: this.needsTokenRefresh(),
       hasGapi: !!window.gapi,
       hasGapiClient: !!(window.gapi && window.gapi.client),
       hasTokenClient: !!this.tokenClient,
       hasSpreadsheetId: !!this.spreadsheetId,
-      spreadsheetId: this.spreadsheetId
+      spreadsheetId: this.spreadsheetId,
+      googleApiLoaded: !!(window.gapi && window.google && window.google.accounts),
+      isReady: this.isReady()
     }
   }
 }

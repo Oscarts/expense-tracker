@@ -1,22 +1,46 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import googleSheetsService from '../../services/googleSheets'
 
 const Header = () => {
   const location = useLocation()
   const [isSyncing, setIsSyncing] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  useEffect(() => {
+    // Check authentication status on component mount
+    const checkAuth = () => {
+      setIsAuthenticated(googleSheetsService.isUserAuthenticated() && !googleSheetsService.needsTokenRefresh())
+    }
+    
+    checkAuth()
+    
+    // Check every 30 seconds for token expiry
+    const interval = setInterval(checkAuth, 30000)
+    
+    return () => clearInterval(interval)
+  }, [])
 
   const isActive = (path) => location.pathname === path
+
+  const handleSignOut = async () => {
+    try {
+      await googleSheetsService.signOut()
+      setIsAuthenticated(false)
+      alert('Successfully signed out from Google Sheets')
+    } catch (error) {
+      console.error('Sign out failed:', error)
+      alert('Sign out failed: ' + error.message)
+    }
+  }
 
   const handleSync = async () => {
     try {
       setIsSyncing(true)
       
       // Initialize and authenticate if needed
-      if (!googleSheetsService.isUserAuthenticated()) {
-        await googleSheetsService.initialize()
-        await googleSheetsService.authenticate()
-      }
+      await googleSheetsService.ensureAuthenticated()
+      setIsAuthenticated(true)
       
       // Create spreadsheet if none exists
       const spreadsheetId = import.meta.env.VITE_SPREADSHEET_ID
@@ -94,6 +118,17 @@ const Header = () => {
             </nav>
           </div>
           <div className="flex items-center space-x-4">
+            {isAuthenticated && (
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-green-600 font-medium">✓ Connected</span>
+                <button 
+                  onClick={handleSignOut}
+                  className="px-3 py-1 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                >
+                  Sign Out
+                </button>
+              </div>
+            )}
             <button 
               onClick={handleSync}
               disabled={isSyncing}
@@ -103,7 +138,7 @@ const Header = () => {
                   : 'bg-primary-600 text-white hover:bg-primary-700'
               }`}
             >
-              {isSyncing ? 'Syncing...' : 'Sync to Sheets'}
+              {isSyncing ? 'Syncing...' : isAuthenticated ? 'Sync to Sheets' : 'Connect to Sheets'}
             </button>
           </div>
         </div>
