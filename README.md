@@ -1,20 +1,39 @@
 # Expense Tracker Web App
 
-A simple, intuitive expense tracking web application that works completely offline with optional Google Sheets sync for backup.
+A simple, intuitive expense tracking web application that works completely offline with optional Google Sheets sync. **Now supports multi-user access without individual logins!**
 
 ![Expense Tracker Dashboard](https://via.placeholder.com/800x400?text=Expense+Tracker+Dashboard)
 
 ## Features
 
 - ✅ **Standalone Operation** - Works completely without internet or Google account
+- ✅ **Multi-User Support** - Family/team can all add expenses without logins (with Service Account)
 - ✅ **Local Storage** - All data saved in browser, persists across sessions
+- ✅ **Automatic Sync** - Background Google Sheets sync with Service Account
 - ✅ **Quick Expense Entry** - Fast input form with predefined categories
 - ✅ **Category Management** - Predefined and custom expense categories
 - ✅ **Date Range Filtering** - View expenses by specific time periods
 - ✅ **Visual Dashboard** - Charts and spending summaries
-- ✅ **Optional Google Sheets Sync** - Backup data to cloud when desired
 - ✅ **Mobile Responsive** - Works seamlessly on all devices
 - ✅ **Modern UI** - Clean, intuitive interface with Tailwind CSS
+
+## Usage Modes
+
+### 🚀 **Mode 1: Standalone (Default)**
+- Works immediately, no setup required
+- All data stored locally in browser
+- Perfect for personal expense tracking
+
+### 🤖 **Mode 2: Multi-User with Service Account (Recommended)**
+- Multiple users can add expenses without authentication
+- Automatic Google Sheets sync in background
+- Perfect for family/team expense tracking
+- **Setup**: Follow [SERVICE_ACCOUNT_SETUP.md](./SERVICE_ACCOUNT_SETUP.md)
+
+### 👤 **Mode 3: Single-User with OAuth**
+- Traditional Google authentication
+- Manual sync to Google Sheets
+- Good for individual users who want cloud backup
 
 ## Tech Stack
 
@@ -46,11 +65,37 @@ A simple, intuitive expense tracking web application that works completely offli
 
 3. **Open your browser** and go to `http://localhost:3000`
 
-That's it! You can start tracking expenses immediately. No configuration required.
+## ✨ **Multi-User Features**
 
-### Optional Google Sheets Integration
+### **🤖 Service Account Mode (Recommended)**
+- **No individual logins** - anyone can add expenses
+- **Automatic Google Sheets sync** - all data shared in real-time  
+- **Perfect for families/teams** - everyone sees the same data
+- **Cross-browser/device sync** - access from anywhere
 
-If you want to backup your data to Google Sheets:
+### **📱 localStorage Mode (Fallback)**
+- **Instant offline functionality** - works without setup
+- **Per-browser storage** - each browser has its own data
+- **Optional manual sync** to Google Sheets when configured
+
+## 🔧 **Solving the Multi-Browser Data Issue**
+
+**Problem**: Each browser stores data separately in localStorage
+```
+Chrome:   [Expense A, Expense B] 
+Firefox:  [Expense C, Expense D]  
+Safari:   [Expense E]
+```
+
+**Solution**: Service Account with Google Sheets as central database
+```
+All Browsers → Google Sheets → [All Expenses A,B,C,D,E]
+```
+
+### **Setup Service Account (5 minutes):**
+1. Follow [Service Account Setup Guide](SERVICE_ACCOUNT_SETUP.md)
+2. Add credentials to your deployment environment variables
+3. **Done!** - Now all browsers share the same data automatically
 
 1. **Set up environment variables**
    ```bash

@@ -5,7 +5,7 @@ import expenseService from '../../services/expenseService'
 const Header = () => {
   const location = useLocation()
   const [isSyncing, setIsSyncing] = useState(false)
-  const [syncStatus, setSyncStatus] = useState('unknown')
+  const [syncStatus, setSyncStatus] = useState(null)
 
   useEffect(() => {
     // Check sync status on component mount
@@ -16,7 +16,7 @@ const Header = () => {
         setSyncStatus(status)
       } catch (error) {
         console.error('Error checking sync status:', error)
-        setSyncStatus('error')
+        setSyncStatus({ status: 'error' })
       }
     }
     
@@ -33,11 +33,17 @@ const Header = () => {
       await expenseService.initialize()
       
       // Try to sync to Google Sheets
-      await expenseService.syncToGoogleSheets()
+      const result = await expenseService.syncToGoogleSheets()
       
       // Update sync status
       const status = await expenseService.getSyncStatus()
       setSyncStatus(status)
+      
+      if (result.synced > 0) {
+        alert(`Successfully synced ${result.synced} expenses to Google Sheets!`)
+      } else {
+        alert('All expenses are already synced!')
+      }
       
       alert('Successfully synced to Google Sheets!')
     } catch (error) {
@@ -120,28 +126,43 @@ const Header = () => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <span className={`text-sm font-medium ${
-                syncStatus === 'synced' ? 'text-green-600' :
-                syncStatus === 'pending' ? 'text-yellow-600' :
-                syncStatus === 'error' ? 'text-red-600' :
+                syncStatus?.status === 'synced' ? 'text-green-600' :
+                syncStatus?.status === 'connected' ? 'text-green-600' :
+                syncStatus?.status === 'pending' ? 'text-yellow-600' :
+                syncStatus?.status === 'error' ? 'text-red-600' :
                 'text-gray-600'
               }`}>
-                {syncStatus === 'synced' ? '✓ Synced' :
-                 syncStatus === 'pending' ? '⏳ Sync Pending' :
-                 syncStatus === 'error' ? '✗ Sync Error' :
-                 '○ Local Only'}
+                {syncStatus?.serviceAccountEnabled ? (
+                  // Service Account Mode
+                  syncStatus?.status === 'connected' || syncStatus?.status === 'synced' ? 
+                    '🤖 Multi-User (Live)' : 
+                  syncStatus?.status === 'initializing' ? 
+                    '🤖 Connecting...' :
+                  syncStatus?.status === 'not_configured' ?
+                    '🤖 Setup Required' :
+                    '🤖 Connection Error'
+                ) : (
+                  // localStorage Mode  
+                  syncStatus?.status === 'synced' ? '✓ Synced' :
+                  syncStatus?.status === 'pending' ? '⏳ Sync Pending' :
+                  syncStatus?.status === 'error' ? '✗ Sync Error' :
+                  '○ Local Only'
+                )}
               </span>
             </div>
-            <button 
-              onClick={handleSync}
-              disabled={isSyncing}
-              className={`px-4 py-2 rounded-md text-sm font-medium ${
-                isSyncing 
-                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-                  : 'bg-primary-600 text-white hover:bg-primary-700'
-              }`}
-            >
-              {isSyncing ? 'Syncing...' : 'Sync to Sheets'}
-            </button>
+            {!syncStatus?.serviceAccountEnabled && (
+              <button 
+                onClick={handleSync}
+                disabled={isSyncing || !syncStatus?.googleSheetsAvailable}
+                className={`px-4 py-2 rounded-md text-sm font-medium ${
+                  isSyncing || !syncStatus?.googleSheetsAvailable
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                    : 'bg-primary-600 text-white hover:bg-primary-700'
+                }`}
+              >
+                {isSyncing ? 'Syncing...' : 'Sync to Sheets'}
+              </button>
+            )}
           </div>
         </div>
       </div>
