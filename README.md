@@ -1,16 +1,18 @@
 # Expense Tracker Web App
 
-A simple, intuitive expense tracking web application that syncs with Google Sheets for easy data management and backup.
+A simple, intuitive expense tracking web application that works completely offline with optional Google Sheets sync for backup.
 
 ![Expense Tracker Dashboard](https://via.placeholder.com/800x400?text=Expense+Tracker+Dashboard)
 
 ## Features
 
+- ✅ **Standalone Operation** - Works completely without internet or Google account
+- ✅ **Local Storage** - All data saved in browser, persists across sessions
 - ✅ **Quick Expense Entry** - Fast input form with predefined categories
 - ✅ **Category Management** - Predefined and custom expense categories
 - ✅ **Date Range Filtering** - View expenses by specific time periods
 - ✅ **Visual Dashboard** - Charts and spending summaries
-- ⏳ **Google Sheets Sync** - Real-time data synchronization (in development)
+- ✅ **Optional Google Sheets Sync** - Backup data to cloud when desired
 - ✅ **Mobile Responsive** - Works seamlessly on all devices
 - ✅ **Modern UI** - Clean, intuitive interface with Tailwind CSS
 
@@ -19,9 +21,9 @@ A simple, intuitive expense tracking web application that syncs with Google Shee
 - **Frontend**: React 18 with Vite
 - **Styling**: Tailwind CSS
 - **Routing**: React Router DOM
+- **Storage**: localStorage (primary) + Google Sheets (optional)
 - **Charts**: Recharts (planned)
-- **Backend**: Google Sheets API
-- **Authentication**: Google OAuth 2.0 (planned)
+- **Authentication**: Google OAuth 2.0 (optional)
 
 ## Quick Start
 
@@ -29,7 +31,6 @@ A simple, intuitive expense tracking web application that syncs with Google Shee
 
 - Node.js 16 or higher
 - npm or yarn
-- Google Cloud Console account (for Sheets integration)
 
 ### Installation
 
@@ -38,7 +39,20 @@ A simple, intuitive expense tracking web application that syncs with Google Shee
    npm install
    ```
 
-2. **Set up environment variables**
+2. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+3. **Open your browser** and go to `http://localhost:3000`
+
+That's it! You can start tracking expenses immediately. No configuration required.
+
+### Optional Google Sheets Integration
+
+If you want to backup your data to Google Sheets:
+
+1. **Set up environment variables**
    ```bash
    cp .env.example .env
    ```

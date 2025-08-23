@@ -1,53 +1,43 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import googleSheetsService from '../../services/googleSheets'
+import expenseService from '../../services/expenseService'
 
 const Header = () => {
   const location = useLocation()
   const [isSyncing, setIsSyncing] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [syncStatus, setSyncStatus] = useState('unknown')
 
   useEffect(() => {
-    // Check authentication status on component mount
-    const checkAuth = () => {
-      setIsAuthenticated(googleSheetsService.isUserAuthenticated() && !googleSheetsService.needsTokenRefresh())
+    // Check sync status on component mount
+    const checkSyncStatus = async () => {
+      try {
+        await expenseService.initialize()
+        const status = await expenseService.getSyncStatus()
+        setSyncStatus(status)
+      } catch (error) {
+        console.error('Error checking sync status:', error)
+        setSyncStatus('error')
+      }
     }
     
-    checkAuth()
-    
-    // Check every 30 seconds for token expiry
-    const interval = setInterval(checkAuth, 30000)
-    
-    return () => clearInterval(interval)
+    checkSyncStatus()
   }, [])
 
   const isActive = (path) => location.pathname === path
-
-  const handleSignOut = async () => {
-    try {
-      await googleSheetsService.signOut()
-      setIsAuthenticated(false)
-      alert('Successfully signed out from Google Sheets')
-    } catch (error) {
-      console.error('Sign out failed:', error)
-      alert('Sign out failed: ' + error.message)
-    }
-  }
 
   const handleSync = async () => {
     try {
       setIsSyncing(true)
       
-      // Initialize and authenticate if needed
-      await googleSheetsService.ensureAuthenticated()
-      setIsAuthenticated(true)
+      // Initialize expense service
+      await expenseService.initialize()
       
-      // Create spreadsheet if none exists
-      const spreadsheetId = import.meta.env.VITE_SPREADSHEET_ID
-      if (!spreadsheetId) {
-        await googleSheetsService.createExpenseSpreadsheet()
-        alert('New spreadsheet created! Check the debug panel for the ID to add to your .env file.')
-      }
+      // Try to sync to Google Sheets
+      await expenseService.syncToGoogleSheets()
+      
+      // Update sync status
+      const status = await expenseService.getSyncStatus()
+      setSyncStatus(status)
       
       alert('Successfully synced to Google Sheets!')
     } catch (error) {
@@ -115,20 +105,32 @@ const Header = () => {
               >
                 Debug
               </Link>
+              <Link
+                to="/test"
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  isActive('/test') 
+                    ? 'bg-primary-100 text-primary-700' 
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Test
+              </Link>
             </nav>
           </div>
           <div className="flex items-center space-x-4">
-            {isAuthenticated && (
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-green-600 font-medium">✓ Connected</span>
-                <button 
-                  onClick={handleSignOut}
-                  className="px-3 py-1 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                >
-                  Sign Out
-                </button>
-              </div>
-            )}
+            <div className="flex items-center space-x-2">
+              <span className={`text-sm font-medium ${
+                syncStatus === 'synced' ? 'text-green-600' :
+                syncStatus === 'pending' ? 'text-yellow-600' :
+                syncStatus === 'error' ? 'text-red-600' :
+                'text-gray-600'
+              }`}>
+                {syncStatus === 'synced' ? '✓ Synced' :
+                 syncStatus === 'pending' ? '⏳ Sync Pending' :
+                 syncStatus === 'error' ? '✗ Sync Error' :
+                 '○ Local Only'}
+              </span>
+            </div>
             <button 
               onClick={handleSync}
               disabled={isSyncing}
@@ -138,7 +140,7 @@ const Header = () => {
                   : 'bg-primary-600 text-white hover:bg-primary-700'
               }`}
             >
-              {isSyncing ? 'Syncing...' : isAuthenticated ? 'Sync to Sheets' : 'Connect to Sheets'}
+              {isSyncing ? 'Syncing...' : 'Sync to Sheets'}
             </button>
           </div>
         </div>

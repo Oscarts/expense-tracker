@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import googleSheetsService from '../services/googleSheets'
+import expenseService from '../services/expenseService'
 import { formatCurrency, formatDate } from '../utils/helpers'
 
 const Dashboard = () => {
@@ -10,72 +10,25 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // Load expenses from Google Sheets
+  // Load expenses from local storage
   const loadExpenses = async () => {
     try {
       setLoading(true)
       setError('')
       console.log('Dashboard: Starting loadExpenses...')
       
-      // Check if environment variables are configured
-      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
-      const apiKey = import.meta.env.VITE_GOOGLE_API_KEY
+      // Initialize expense service
+      await expenseService.initialize()
       
-      if (!clientId || !apiKey || clientId.includes('your_') || apiKey.includes('your_')) {
-        console.log('Dashboard: Google API credentials not configured')
-        setError('Google Sheets API not configured. Please set up your API credentials in environment variables.')
-        setExpenses([])
-        return
-      }
-      
-      // Check if Google API is available
-      if (typeof window.gapi === 'undefined') {
-        console.log('Dashboard: Google API not available, showing empty state')
-        setExpenses([])
-        return
-      }
-      
-      // Initialize if needed
-      if (!googleSheetsService.isReady()) {
-        console.log('Dashboard: Initializing Google Sheets service...')
-        await googleSheetsService.initialize()
-        if (!googleSheetsService.isUserAuthenticated()) {
-          console.log('Dashboard: User not authenticated, showing empty state')
-          setExpenses([])
-          return
-        }
-      }
-      
-      // Check if we have a spreadsheet
-      const spreadsheetId = import.meta.env.VITE_SPREADSHEET_ID || googleSheetsService.getSpreadsheetId()
-      if (!spreadsheetId) {
-        console.log('Dashboard: No spreadsheet ID, showing empty state')
-        // No spreadsheet yet, show empty state
-        setExpenses([])
-        return
-      }
-      
-      googleSheetsService.setSpreadsheetId(spreadsheetId)
-      
-      // Load expenses
-      console.log('Dashboard: Loading expenses from Google Sheets...')
-      const expensesData = await googleSheetsService.getExpenses()
+      // Load expenses from localStorage (with optional Google Sheets sync)
+      console.log('Dashboard: Loading expenses...')
+      const expensesData = await expenseService.getExpenses()
       console.log('Dashboard: Loaded expenses:', expensesData)
       setExpenses(expensesData)
       
     } catch (error) {
       console.error('Dashboard: Error loading expenses:', error)
-      
-      // Provide more user-friendly error messages
-      if (error.message.includes('client_id')) {
-        setError('Google API configuration missing. Please contact the administrator to set up API credentials.')
-      } else if (error.message.includes('API key')) {
-        setError('Google API key not configured. Please contact the administrator.')
-      } else {
-        setError(`Failed to load expenses: ${error.message}`)
-      }
-      
-      // Set empty expenses on error to prevent white screen
+      setError(`Failed to load expenses: ${error.message}`)
       setExpenses([])
     } finally {
       setLoading(false)

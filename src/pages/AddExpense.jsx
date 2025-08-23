@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import googleSheetsService from '../services/googleSheets'
+import expenseService from '../services/expenseService'
 
 const AddExpense = () => {
   const navigate = useNavigate()
@@ -65,25 +65,11 @@ const AddExpense = () => {
       
       console.log('Saving expense:', expenseData)
       
-      // Initialize Google Sheets service if needed
-      if (!googleSheetsService.isUserAuthenticated()) {
-        setError('Please connect to Google Sheets first. Go to Settings to connect.')
-        setIsLoading(false)
-        return
-      }
+      // Initialize expense service
+      await expenseService.initialize()
       
-      // Check if we have a spreadsheet ID
-      const spreadsheetId = import.meta.env.VITE_SPREADSHEET_ID
-      if (spreadsheetId) {
-        googleSheetsService.setSpreadsheetId(spreadsheetId)
-      } else {
-        // Create a new spreadsheet if none exists
-        console.log('No spreadsheet ID found, creating new spreadsheet...')
-        await googleSheetsService.createExpenseSpreadsheet()
-      }
-      
-      // Add the expense to Google Sheets
-      await googleSheetsService.addExpense(expenseData)
+      // Add the expense (automatically saves to localStorage, optionally syncs to Google Sheets)
+      await expenseService.addExpense(expenseData)
       
       setSuccess('Expense added successfully!')
       

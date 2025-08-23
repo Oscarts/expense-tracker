@@ -6,6 +6,7 @@ import AddExpense from './pages/AddExpense'
 import ExpenseList from './pages/ExpenseList'
 import Settings from './pages/Settings'
 import Debug from './pages/Debug'
+import LocalStorageTest from './pages/LocalStorageTest'
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
             <Route path="/expenses" element={<ExpenseList />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/debug" element={<Debug />} />
+            <Route path="/test" element={<LocalStorageTest />} />
           </Routes>
         </main>
       </div>

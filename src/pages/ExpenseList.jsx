@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import googleSheetsService from '../services/googleSheets'
+import expenseService from '../services/expenseService'
 
 const ExpenseList = () => {
   // Real data from Google Sheets
@@ -14,31 +14,17 @@ const ExpenseList = () => {
     search: ''
   })
 
-  // Load expenses from Google Sheets
+  // Load expenses from local storage
   const loadExpenses = async () => {
     try {
       setLoading(true)
       setError('')
       
-      // Initialize if needed
-      if (!googleSheetsService.isReady()) {
-        await googleSheetsService.initialize()
-        if (!googleSheetsService.isUserAuthenticated()) {
-          await googleSheetsService.authenticate()
-        }
-      }
-      
-      // Check if we have a spreadsheet
-      const spreadsheetId = import.meta.env.VITE_SPREADSHEET_ID || googleSheetsService.getSpreadsheetId()
-      if (!spreadsheetId) {
-        setError('No spreadsheet configured. Please create a spreadsheet first.')
-        return
-      }
-      
-      googleSheetsService.setSpreadsheetId(spreadsheetId)
+      // Initialize expense service
+      await expenseService.initialize()
       
       // Load expenses
-      const expensesData = await googleSheetsService.getExpenses()
+      const expensesData = await expenseService.getExpenses()
       setExpenses(expensesData)
       
     } catch (error) {
