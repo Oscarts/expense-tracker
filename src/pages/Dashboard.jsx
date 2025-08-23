@@ -17,6 +17,17 @@ const Dashboard = () => {
       setError('')
       console.log('Dashboard: Starting loadExpenses...')
       
+      // Check if environment variables are configured
+      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+      const apiKey = import.meta.env.VITE_GOOGLE_API_KEY
+      
+      if (!clientId || !apiKey || clientId.includes('your_') || apiKey.includes('your_')) {
+        console.log('Dashboard: Google API credentials not configured')
+        setError('Google Sheets API not configured. Please set up your API credentials in environment variables.')
+        setExpenses([])
+        return
+      }
+      
       // Check if Google API is available
       if (typeof window.gapi === 'undefined') {
         console.log('Dashboard: Google API not available, showing empty state')
@@ -54,7 +65,16 @@ const Dashboard = () => {
       
     } catch (error) {
       console.error('Dashboard: Error loading expenses:', error)
-      setError(`Failed to load expenses: ${error.message}`)
+      
+      // Provide more user-friendly error messages
+      if (error.message.includes('client_id')) {
+        setError('Google API configuration missing. Please contact the administrator to set up API credentials.')
+      } else if (error.message.includes('API key')) {
+        setError('Google API key not configured. Please contact the administrator.')
+      } else {
+        setError(`Failed to load expenses: ${error.message}`)
+      }
+      
       // Set empty expenses on error to prevent white screen
       setExpenses([])
     } finally {
@@ -134,17 +154,33 @@ const Dashboard = () => {
               </svg>
             </div>
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">Error loading dashboard</h3>
+              <h3 className="text-sm font-medium text-red-800">Configuration Required</h3>
               <div className="mt-2 text-sm text-red-700">
                 <p>{error}</p>
+                {error.includes('API') && (
+                  <div className="mt-3 p-3 bg-red-100 rounded border border-red-200">
+                    <p className="font-medium text-red-800 mb-2">For now, you can:</p>
+                    <ul className="list-disc list-inside text-red-700 space-y-1">
+                      <li>Use the app locally with your own Google API credentials</li>
+                      <li>Navigate to other pages to see the app structure</li>
+                      <li>Check out the Debug page for API setup instructions</li>
+                    </ul>
+                  </div>
+                )}
               </div>
-              <div className="mt-4">
+              <div className="mt-4 flex space-x-3">
                 <button
                   onClick={loadExpenses}
                   className="bg-red-100 hover:bg-red-200 text-red-800 px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
                 >
                   Try Again
                 </button>
+                <a
+                  href="/debug"
+                  className="bg-blue-100 hover:bg-blue-200 text-blue-800 px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+                >
+                  Setup Guide
+                </a>
               </div>
             </div>
           </div>
