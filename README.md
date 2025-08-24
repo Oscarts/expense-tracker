@@ -1,276 +1,117 @@
-# Expense Tracker Web App
+# 💰 Expense Tracker
 
-A simple, intuitive expense tracking web application that works completely offline with optional Google Sheets sync. **Now supports multi-user access without individual logins!**
+A modern, responsive expense tracking web application built with React and integrated with Google Sheets for real-time data storage.
 
-![Expense Tracker Dashboard](https://via.placeholder.com/800x400?text=Expense+Tracker+Dashboard)
+## ✨ Features
 
-## Features
+- 📊 **Dashboard** - Overview of expenses with totals and category breakdowns
+- ➕ **Add Expenses** - Quick and easy expense entry form
+- 📋 **Expense List** - View, filter, and manage all expenses
+- 🔧 **Settings** - Configure categories and Google Sheets integration
+- 🐛 **Debug Panel** - Troubleshoot Google Sheets API connection
+- 📱 **Responsive Design** - Works perfectly on desktop and mobile
+- ☁️ **Cloud Sync** - Real-time sync with Google Sheets
 
-- ✅ **Standalone Operation** - Works completely without internet or Google account
-- ✅ **Multi-User Support** - Family/team can all add expenses without logins (with Service Account)
-- ✅ **Local Storage** - All data saved in browser, persists across sessions
-- ✅ **Automatic Sync** - Background Google Sheets sync with Service Account
-- ✅ **Quick Expense Entry** - Fast input form with predefined categories
-- ✅ **Category Management** - Predefined and custom expense categories
-- ✅ **Date Range Filtering** - View expenses by specific time periods
-- ✅ **Visual Dashboard** - Charts and spending summaries
-- ✅ **Mobile Responsive** - Works seamlessly on all devices
-- ✅ **Modern UI** - Clean, intuitive interface with Tailwind CSS
+## 🚀 Live Demo
 
-## Usage Modes
+🌐 **[View Live App](https://gastosfamily.netlify.app/)**
 
-### 🚀 **Mode 1: Standalone (Default)**
-- Works immediately, no setup required
-- All data stored locally in browser
-- Perfect for personal expense tracking
+## 🛠️ Tech Stack
 
-### 🤖 **Mode 2: Multi-User with Service Account (Recommended)**
-- Multiple users can add expenses without authentication
-- Automatic Google Sheets sync in background
-- Perfect for family/team expense tracking
-- **Setup**: Follow [SERVICE_ACCOUNT_SETUP.md](./SERVICE_ACCOUNT_SETUP.md)
-
-### 👤 **Mode 3: Single-User with OAuth**
-- Traditional Google authentication
-- Manual sync to Google Sheets
-- Good for individual users who want cloud backup
-
-## Tech Stack
-
-- **Frontend**: React 18 with Vite
+- **Frontend**: React 18, Vite
 - **Styling**: Tailwind CSS
 - **Routing**: React Router DOM
-- **Storage**: localStorage (primary) + Google Sheets (optional)
-- **Charts**: Recharts (planned)
-- **Authentication**: Google OAuth 2.0 (optional)
+- **Backend**: Google Sheets API
+- **Authentication**: Google OAuth 2.0
+- **Deployment**: Netlify
+- **Version Control**: Git + GitHub
 
-## Quick Start
+## 🏃‍♂️ Quick Start
 
-### Prerequisites
+1. **Clone the repository**
 
-- Node.js 16 or higher
-- npm or yarn
+   ```bash
+   git clone https://github.com/oscar/expense-tracker.git
+   cd expense-tracker
+   ```
 
-### Installation
+2. **Install dependencies**
 
-1. **Clone and install dependencies**
    ```bash
    npm install
    ```
 
-2. **Start the development server**
-   ```bash
-   npm run dev
-   ```
+3. **Set up environment variables**
 
-3. **Open your browser** and go to `http://localhost:3000`
-
-## ✨ **Multi-User Features**
-
-### **🤖 Service Account Mode (Recommended)**
-- **No individual logins** - anyone can add expenses
-- **Automatic Google Sheets sync** - all data shared in real-time  
-- **Perfect for families/teams** - everyone sees the same data
-- **Cross-browser/device sync** - access from anywhere
-
-### **📱 localStorage Mode (Fallback)**
-- **Instant offline functionality** - works without setup
-- **Per-browser storage** - each browser has its own data
-- **Optional manual sync** to Google Sheets when configured
-
-## 🔧 **Solving the Multi-Browser Data Issue**
-
-**Problem**: Each browser stores data separately in localStorage
-```
-Chrome:   [Expense A, Expense B] 
-Firefox:  [Expense C, Expense D]  
-Safari:   [Expense E]
-```
-
-**Solution**: Service Account with Google Sheets as central database
-```
-All Browsers → Google Sheets → [All Expenses A,B,C,D,E]
-```
-
-### **Setup Service Account (5 minutes):**
-1. Follow [Service Account Setup Guide](SERVICE_ACCOUNT_SETUP.md)
-2. Add credentials to your deployment environment variables
-3. **Done!** - Now all browsers share the same data automatically
-
-1. **Set up environment variables**
    ```bash
    cp .env.example .env
-   ```
-   
-   Edit `.env` and add your Google API credentials:
-   ```env
-   VITE_GOOGLE_CLIENT_ID=your_google_client_id
-   VITE_GOOGLE_API_KEY=your_google_api_key
-   VITE_SPREADSHEET_ID=your_spreadsheet_id
+   # Edit .env with your Google API credentials
    ```
 
-3. **Start development server**
+4. **Start development server**
+
    ```bash
    npm run dev
    ```
 
-4. **Open your browser**
-   Navigate to `http://localhost:3000`
+5. **Open your browser**
+   - Navigate to `http://localhost:3000`
 
-## Google Sheets Setup
+## ⚙️ Google Sheets Setup
 
-### 1. Create Google Cloud Project
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com)
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select existing one
-3. Enable the Google Sheets API
-4. Create credentials (OAuth 2.0 Client ID)
+3. Enable Google Sheets API
+4. Create credentials (OAuth 2.0 Client IDs)
+5. Add your credentials to `.env` file
 
-### 2. Configure OAuth
-
-1. In the Google Cloud Console, go to APIs & Services > Credentials
-2. Create OAuth 2.0 Client ID
-3. Add your domain to authorized origins:
-   - `http://localhost:3000` (for development)
-   - Your production domain
-
-### 3. Create Expense Spreadsheet
-
-The app will automatically create a new spreadsheet when you first connect, or you can create one manually with these columns:
-
-| Date | Amount | Category | Description | Payment Method | Created At |
-|------|--------|----------|-------------|----------------|------------|
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 expense-tracker/
 ├── src/
 │   ├── components/
-│   │   ├── ui/              # Reusable UI components
-│   │   ├── forms/           # Form components
-│   │   ├── charts/          # Chart components (planned)
-│   │   └── layout/          # Layout components
+│   │   └── layout/
 │   │       └── Header.jsx
 │   ├── pages/
-│   │   ├── Dashboard.jsx    # Main dashboard
-│   │   ├── AddExpense.jsx   # Add expense form
-│   │   ├── ExpenseList.jsx  # View all expenses
-│   │   └── Settings.jsx     # App settings
+│   │   ├── Dashboard.jsx
+│   │   ├── AddExpense.jsx
+│   │   ├── ExpenseList.jsx
+│   │   ├── Settings.jsx
+│   │   └── Debug.jsx
 │   ├── services/
-│   │   └── googleSheets.js  # Google Sheets API
+│   │   └── googleSheets.js
 │   ├── utils/
-│   │   └── helpers.js       # Utility functions
-│   ├── App.jsx              # Main app component
-│   ├── main.jsx            # App entry point
-│   └── index.css           # Global styles
-├── public/                  # Static assets
-├── .env.example            # Environment variables template
-└── README.md              # This file
+│   │   └── helpers.js
+│   ├── App.jsx
+│   └── main.jsx
+├── public/
+└── dist/ (generated)
 ```
 
-## Available Scripts
+## 🎯 Available Scripts
 
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
 
-## Features in Detail
-
-### Dashboard
-- Overview of total expenses
-- Monthly spending summary
-- Category breakdown with visual indicators
-- Recent expenses list
-
-### Add Expense
-- Quick expense entry form
-- Category selection
-- Date picker
-- Payment method tracking
-- Form validation
-
-### Expense List
-- View all expenses with filtering
-- Search by description or category
-- Date range filtering
-- Sort by various fields
-- Edit/delete functionality (planned)
-
-### Settings
-- Google Sheets connection management
-- Custom category management
-- App preferences
-- Data export options (planned)
-
-## Development Roadmap
-
-### Phase 1: Core UI ✅
-- [x] Project setup with Vite and React
-- [x] Tailwind CSS configuration
-- [x] Basic routing and navigation
-- [x] Dashboard layout
-- [x] Add expense form
-- [x] Expense list view
-- [x] Settings page
-
-### Phase 2: Google Sheets Integration ⏳
-- [ ] Google OAuth implementation
-- [ ] Sheets API integration
-- [ ] Real-time data sync
-- [ ] Error handling and offline support
-
-### Phase 3: Enhanced Features
-- [ ] Charts and visualizations
-- [ ] Advanced filtering and search
-- [ ] Data export (CSV/PDF)
-- [ ] Budget tracking
-- [ ] Receipt photo capture
-
-### Phase 4: Polish & Deploy
-- [ ] Performance optimization
-- [ ] Progressive Web App features
-- [ ] Production deployment
-- [ ] User documentation
-
-## Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `VITE_GOOGLE_CLIENT_ID` | Google OAuth Client ID | Yes |
-| `VITE_GOOGLE_API_KEY` | Google API Key | Yes |
-| `VITE_SPREADSHEET_ID` | Google Sheets ID (optional) | No |
-| `VITE_APP_NAME` | App display name | No |
-| `VITE_DEFAULT_CURRENCY` | Default currency code | No |
-
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## License
+## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is open source and available under the [MIT License](LICENSE).
 
-## Support
+## 👨‍💻 Author
 
-If you encounter any issues or have questions:
-
-1. Check the [Issues](https://github.com/yourusername/expense-tracker/issues) page
-2. Create a new issue with detailed information
-3. Include steps to reproduce any bugs
-
-## Acknowledgments
-
-- Built with [Vite](https://vitejs.dev/) and [React](https://reactjs.org/)
-- Styled with [Tailwind CSS](https://tailwindcss.com/)
-- Icons from [Heroicons](https://heroicons.com/)
-- Inspired by modern expense tracking apps
+**Oscar** - [GitHub Profile](https://github.com/oscar)
 
 ---
 
-**Happy expense tracking! 💰📊**
+⭐ **If you found this project helpful, please give it a star!** ⭐
