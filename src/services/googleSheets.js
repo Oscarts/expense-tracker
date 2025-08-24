@@ -656,6 +656,56 @@ class GoogleSheetsService {
       isReady: this.isReady()
     }
   }
+
+  // Sign out and clear all authentication data
+  signOut() {
+    try {
+      // Revoke the token if we have one
+      if (this.accessToken) {
+        console.log('Revoking access token...')
+        
+        // Use Google's token revocation endpoint
+        fetch(`https://oauth2.googleapis.com/revoke?token=${this.accessToken}`, {
+          method: 'POST',
+          headers: {
+            'Content-type': 'application/x-www-form-urlencoded'
+          }
+        }).catch(error => {
+          console.warn('Failed to revoke token:', error)
+        })
+      }
+
+      // Clear gapi token if available
+      if (window.gapi && window.gapi.client) {
+        window.gapi.client.setToken(null)
+      }
+
+      // Clear all local state
+      this.isAuthenticated = false
+      this.accessToken = null
+      this.tokenExpiryTime = null
+      this.refreshToken = null
+      this.spreadsheetId = null
+
+      // Clear localStorage
+      this.clearAuthenticationState()
+
+      console.log('✅ Successfully signed out')
+      return true
+      
+    } catch (error) {
+      console.error('Error during sign out:', error)
+      // Clear local state anyway
+      this.isAuthenticated = false
+      this.accessToken = null
+      this.tokenExpiryTime = null
+      this.refreshToken = null
+      this.spreadsheetId = null
+      this.clearAuthenticationState()
+      
+      return false
+    }
+  }
 }
 
 // Create singleton instance

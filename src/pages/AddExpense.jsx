@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import expenseService from '../services/expenseService'
+import localStorageService from '../services/localStorage'
 
 const AddExpense = () => {
   const navigate = useNavigate()
@@ -15,17 +16,56 @@ const AddExpense = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [categories, setCategories] = useState([])
+  const [currency, setCurrency] = useState('USD')
 
-  const categories = [
-    'Food & Dining',
-    'Transportation',
-    'Shopping',
-    'Entertainment',
-    'Bills & Utilities',
-    'Healthcare',
-    'Travel',
-    'Other'
-  ]
+  // Load settings and categories on component mount
+  useEffect(() => {
+    const loadSettings = () => {
+      try {
+        const settings = localStorageService.getSettings()
+        
+        // Set categories from settings
+        setCategories(settings.categories || [
+          'Food & Dining',
+          'Transportation',
+          'Shopping',
+          'Entertainment',
+          'Bills & Utilities',
+          'Healthcare',
+          'Travel',
+          'Other'
+        ])
+        
+        // Set currency from settings
+        setCurrency(settings.defaultCurrency || 'USD')
+        
+        // Set default category if configured
+        if (settings.defaultCategory && !formData.category) {
+          setFormData(prev => ({
+            ...prev,
+            category: settings.defaultCategory
+          }))
+        }
+        
+      } catch (error) {
+        console.error('Error loading settings:', error)
+        // Fallback to hardcoded categories
+        setCategories([
+          'Food & Dining',
+          'Transportation', 
+          'Shopping',
+          'Entertainment',
+          'Bills & Utilities',
+          'Healthcare',
+          'Travel',
+          'Other'
+        ])
+      }
+    }
+    
+    loadSettings()
+  }, [])
 
   const paymentMethods = [
     'Cash',
@@ -121,7 +161,9 @@ const AddExpense = () => {
               Amount *
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">$</span>
+              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                {currency === 'EUR' ? '€' : currency === 'USD' ? '$' : currency === 'GBP' ? '£' : currency}
+              </span>
               <input
                 type="number"
                 id="amount"

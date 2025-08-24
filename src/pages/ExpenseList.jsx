@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import expenseService from '../services/expenseService'
+import localStorageService from '../services/localStorage'
 
 const ExpenseList = () => {
   // Real data from Google Sheets
   const [expenses, setExpenses] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [categories, setCategories] = useState([])
 
   const [filters, setFilters] = useState({
     category: '',
@@ -14,7 +16,7 @@ const ExpenseList = () => {
     search: ''
   })
 
-  // Load expenses from local storage
+  // Load expenses and settings
   const loadExpenses = async () => {
     try {
       setLoading(true)
@@ -26,6 +28,19 @@ const ExpenseList = () => {
       // Load expenses
       const expensesData = await expenseService.getExpenses()
       setExpenses(expensesData)
+      
+      // Load categories from settings
+      const settings = localStorageService.getSettings()
+      setCategories(settings.categories || [
+        'Food & Dining',
+        'Transportation',
+        'Shopping',
+        'Entertainment',
+        'Bills & Utilities',
+        'Healthcare',
+        'Travel',
+        'Other'
+      ])
       
     } catch (error) {
       console.error('Error loading expenses:', error)
@@ -39,17 +54,6 @@ const ExpenseList = () => {
   useEffect(() => {
     loadExpenses()
   }, [])
-
-  const categories = [
-    'Food & Dining',
-    'Transportation',
-    'Shopping',
-    'Entertainment',
-    'Bills & Utilities',
-    'Healthcare',
-    'Travel',
-    'Other'
-  ]
 
   const handleFilterChange = (e) => {
     setFilters({

@@ -1,42 +1,28 @@
-// Unified expense service that combines localStorage and Google Sheets Service Account
+// Unified expense service - Google Sheets primary with localStorage backup
 import localStorageService from './localStorage'
-import googleSheetsServiceAccount from './googleSheetsServiceAccount'
+import googleSheetsService from './googleSheets'
 
 class ExpenseService {
   constructor() {
     this.useGoogleSheets = false
-    this.autoSync = false
-    this.useServiceAccount = false
+    this.autoSync = true // Enable auto-sync by default
   }
 
   // Initialize service
   async initialize() {
     try {
-      // Check if Service Account is configured (preferred)
-      const serviceAccountEmail = import.meta.env.VITE_SERVICE_ACCOUNT_EMAIL
-      const serviceAccountKey = import.meta.env.VITE_SERVICE_ACCOUNT_PRIVATE_KEY
+      // Check if Google Sheets credentials are configured
+      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+      const apiKey = import.meta.env.VITE_GOOGLE_API_KEY
       
-      if (serviceAccountEmail && serviceAccountKey) {
-        // Try to initialize Google Sheets with Service Account
-        try {
-          await googleSheetsServiceAccount.initialize()
-          this.useGoogleSheets = true
-          this.useServiceAccount = true
-          this.autoSync = true // Enable auto-sync for service account
-          console.log('Google Sheets Service Account integration available')
-        } catch (error) {
-          console.warn('Service Account initialization failed:', error)
-          this.useServiceAccount = false
-        }
+      if (clientId && apiKey && !clientId.includes('your_') && !apiKey.includes('your_')) {
+        // Try to initialize Google Sheets
+        await googleSheetsService.initialize()
+        this.useGoogleSheets = true
+        console.log('Google Sheets integration available')
       } else {
-        console.log('Service Account not configured, using localStorage only')
-        console.log('💡 For multi-user access, configure Service Account credentials')
-      }
-      
-      // Load user settings
-      const settings = localStorageService.getSettings()
-      if (!this.useServiceAccount) {
-        this.autoSync = settings.autoSync || false
+        console.log('Google Sheets not configured, using localStorage only')
+        console.log('💡 Configure Google API credentials for cloud sync')
       }
       
     } catch (error) {
@@ -45,41 +31,115 @@ class ExpenseService {
     }
   }
 
-    // Add expense - Primary storage based on configuration
+    // Add expense - Google Sheets primary, localStorage backup
   async addExpense(expense) {
     try {
       let savedExpense
 
-      if (this.useServiceAccount && this.useGoogleSheets) {
-        // Service Account: Use Google Sheets as primary database
-        console.log('Adding expense to Google Sheets (Service Account):', expense)
+      if (this.useGoogleSheets) {
+        // Try Google Sheets first (primary storage)
+        console.log('Adding expense to Google Sheets:', expense)
         
         try {
-          savedExpense = await googleSheetsServiceAccount.addExpense(expense)
+          // Ensure user is authenticated
+          if (!googleSheetsService.isUserAuthenticated()) {
+            console.log('User not authenticated, requesting authentication...')
+            await googleSheetsService.authenticate()
+          }
           
-          // Also save to localStorage as backup
-          localStorageService.addExpense({...savedExpense, synced: true})
+          // Check if we have a spreadsheet configured
+          console.log('=== ENVIRONMENT VARIABLES DEBUG ===')
+          console.log('All import.meta.env:', import.meta.env)
+          console.log('VITE_SPREADSHEET_ID from env:', import.meta.env.VITE_SPREADSHEET_ID)
+          console.log('Type of VITE_SPREADSHEET_ID:', typeof import.meta.env.VITE_SPREADSHEET_ID)
+          console.log('Service spreadsheet ID:', googleSheetsService.getSpreadsheetId())
+          console.log('===================================')
           
-          console.log('Expense saved to Google Sheets and localStorage:', savedExpense)
+          let spreadsheetId = import.meta.env.VITE_SPREADSHEET_ID || googleSheetsService.getSpreadsheetId()
+          
+          console.log('Environment spreadsheet ID:', import.meta.env.VITE_SPREADSHEET_ID)
+          console.log('Service spreadsheet ID:', googleSheetsService.getSpreadsheetId())
+          console.log('Final spreadsheet ID to use:', spreadsheetId)
+          
+          if (!spreadsheetId) {
+            // No spreadsheet configured, create a new one ONLY for first-time setup
+            console.log('No spreadsheet found, creating new one for first-time setup...')
+            spreadsheetId = await googleSheetsService.createExpenseSpreadsheet()
+            console.log('🎉 Created your permanent expense spreadsheet:', spreadsheetId)
+            console.log('💡 Copy this ID to your .env file: VITE_SPREADSHEET_ID=' + spreadsheetId)
+            
+            // Set it for this session
+            googleSheetsService.setSpreadsheetId(spreadsheetId)
+          } else {
+            // Use the configured spreadsheet (preserves history)
+            console.log('Using your permanent expense spreadsheet:', spreadsheetId)
+            googleSheetsService.setSpreadsheetId(spreadsheetId)
+          }
+          
+          // Add expense to the spreadsheet
+          try {
+            savedExpense = await googleSheetsService.addExpense(expense)
+            
+            // Also save to localStorage as backup
+            localStorageService.addExpense({...savedExpense, synced: true})
+            
+            console.log('✅ Expense saved to your permanent Google Sheet and localStorage:', savedExpense)
+            
+          } catch (spreadsheetError) {
+            console.warn('❌ Error with configured spreadsheet:', spreadsheetError.message)
+            console.warn('🔍 Debugging info:')
+            console.warn('   - Spreadsheet ID:', spreadsheetId)
+            console.warn('   - User authenticated:', googleSheetsService.isUserAuthenticated())
+            console.warn('   - Error details:', spreadsheetError)
+            
+            if (spreadsheetError.message.includes('Permission denied') ||
+                spreadsheetError.message.includes('edit access')) {
+              
+              throw new Error(`❌ Permission denied to your spreadsheet (${spreadsheetId}). 
+              
+🔧 Please check:
+1. Are you logged in with the correct Google account?
+2. Does that account have EDIT access to the spreadsheet?
+3. Try opening the spreadsheet directly: https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit
+4. If you can't access it, ask the owner to give you edit permission.
+
+� To fix: Go to Settings page and re-authenticate with the correct Google account.`)
+              
+            } else if (spreadsheetError.message.includes('Spreadsheet not found')) {
+              
+              throw new Error(`❌ Spreadsheet not found (${spreadsheetId}). 
+              
+🔧 Please check:
+1. Is the spreadsheet ID correct in your .env file?
+2. Does the spreadsheet exist at: https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit
+3. Are you logged in with the correct Google account?
+
+🔄 To fix: Verify the spreadsheet URL and re-authenticate if needed.`)
+              
+            } else {
+              throw spreadsheetError // Re-throw if it's a different error
+            }
+          }
           
         } catch (error) {
-          console.warn('Failed to save to Google Sheets, saving to localStorage only:', error)
+          console.warn('❌ Failed to save to Google Sheets, saving to localStorage only:', error)
           savedExpense = localStorageService.addExpense(expense)
-        }
-      } else {
-        // No service account: Use localStorage as primary
-        savedExpense = localStorageService.addExpense(expense)
-        console.log('Expense saved to localStorage:', savedExpense)
-
-        // Try to sync to Google Sheets if enabled and available (user OAuth)
-        if (this.autoSync && this.useGoogleSheets) {
-          try {
-            await this.syncToGoogleSheets([savedExpense])
-          } catch (error) {
-            console.warn('Auto-sync to Google Sheets failed:', error)
-            // Don't throw error - expense is still saved locally
+          
+          // Provide helpful error message for permission issues
+          if (error.message.includes('Permission denied') || error.message.includes('access')) {
+            throw new Error(`Permission denied to spreadsheet. Please:
+            1. Make sure you're logged in with the correct Google account
+            2. Check that the spreadsheet ID in your .env file is correct
+            3. Ensure you have edit access to that spreadsheet
+            4. If using a shared account, make sure everyone uses the SAME Google login`)
+          } else {
+            throw error
           }
         }
+      } else {
+        // No Google Sheets: Use localStorage only
+        savedExpense = localStorageService.addExpense(expense)
+        console.log('Expense saved to localStorage:', savedExpense)
       }
 
       return savedExpense
@@ -90,34 +150,38 @@ class ExpenseService {
     }
   }
 
-  // Get all expenses - Source depends on configuration
+  // Get all expenses - Google Sheets primary, localStorage fallback
   async getExpenses() {
     try {
-      if (this.useServiceAccount && this.useGoogleSheets) {
-        // Service Account: Load from Google Sheets as primary source
-        console.log('Loading expenses from Google Sheets (Service Account)...')
+      if (this.useGoogleSheets && googleSheetsService.isUserAuthenticated()) {
+        // Load from Google Sheets as primary source
+        console.log('Loading expenses from Google Sheets...')
         
         try {
-          const expenses = await googleSheetsServiceAccount.getExpenses()
-          
-          // Also update localStorage with latest data
-          localStorage.setItem('expenseTracker_expenses', JSON.stringify(expenses))
-          
-          console.log(`Loaded ${expenses.length} expenses from Google Sheets`)
-          return expenses
+          // Ensure we have a spreadsheet
+          const spreadsheetId = import.meta.env.VITE_SPREADSHEET_ID || googleSheetsService.getSpreadsheetId()
+          if (spreadsheetId) {
+            googleSheetsService.setSpreadsheetId(spreadsheetId)
+            const expenses = await googleSheetsService.getExpenses()
+            
+            // Update localStorage with latest data
+            localStorage.setItem('expenseTracker_expenses', JSON.stringify(expenses))
+            
+            console.log(`Loaded ${expenses.length} expenses from Google Sheets`)
+            return expenses
+          }
           
         } catch (error) {
           console.warn('Failed to load from Google Sheets, using localStorage:', error)
-          return localStorageService.getExpenses()
         }
-      } else {
-        // No service account: Load from localStorage
-        return localStorageService.getExpenses()
       }
+      
+      // Fallback to localStorage
+      return localStorageService.getExpenses()
       
     } catch (error) {
       console.error('Error getting expenses:', error)
-      return localStorageService.getExpenses() // Fallback to localStorage
+      return localStorageService.getExpenses() // Final fallback
     }
   }
 
@@ -273,30 +337,26 @@ class ExpenseService {
   async getSyncStatus() {
     try {
       const allExpenses = localStorageService.getExpenses()
-      let status = 'local_only'
+      let status = 'not_authenticated'
       
-      if (this.useServiceAccount && this.useGoogleSheets) {
-        // Service Account mode: All expenses automatically synced
-        const serviceStatus = googleSheetsServiceAccount.getSyncStatus()
-        status = serviceStatus === 'connected' ? 'synced' : serviceStatus
-      } else {
-        // localStorage mode: Check if sync is available and pending
-        const unsyncedExpenses = localStorageService.getUnsyncedExpenses()
-        
-        if (this.useGoogleSheets) {
-          status = unsyncedExpenses.length === 0 ? 'synced' : 'pending'
+      if (this.useGoogleSheets) {
+        if (googleSheetsService.isUserAuthenticated()) {
+          const spreadsheetId = import.meta.env.VITE_SPREADSHEET_ID || googleSheetsService.getSpreadsheetId()
+          status = spreadsheetId ? 'synced' : 'no_spreadsheet'
+        } else {
+          status = 'not_authenticated'
         }
+      } else {
+        status = 'not_configured'
       }
       
       return {
-        status, // 'synced', 'pending', 'local_only', 'error', 'not_configured'
+        status, // 'synced', 'not_authenticated', 'no_spreadsheet', 'not_configured', 'error'
         totalExpenses: allExpenses.length,
-        syncedExpenses: this.useServiceAccount ? allExpenses.length : allExpenses.length - (localStorageService.getUnsyncedExpenses()?.length || 0),
-        unsyncedExpenses: this.useServiceAccount ? 0 : (localStorageService.getUnsyncedExpenses()?.length || 0),
         googleSheetsAvailable: this.useGoogleSheets,
-        serviceAccountEnabled: this.useServiceAccount,
-        autoSyncEnabled: this.autoSync,
-        lastSync: localStorageService.getSettings().lastSync || null
+        userAuthenticated: googleSheetsService.isUserAuthenticated(),
+        hasSpreadsheet: !!(import.meta.env.VITE_SPREADSHEET_ID || googleSheetsService.getSpreadsheetId()),
+        autoSyncEnabled: this.autoSync
       }
       
     } catch (error) {
@@ -304,12 +364,10 @@ class ExpenseService {
       return {
         status: 'error',
         totalExpenses: 0,
-        syncedExpenses: 0,
-        unsyncedExpenses: 0,
         googleSheetsAvailable: false,
-        serviceAccountEnabled: false,
-        autoSyncEnabled: false,
-        lastSync: null
+        userAuthenticated: false,
+        hasSpreadsheet: false,
+        autoSyncEnabled: false
       }
     }
   }
@@ -350,6 +408,24 @@ class ExpenseService {
   // Clear all data
   clearAllData() {
     localStorageService.clearExpenses()
+  }
+
+  // Sign out from Google Sheets
+  signOut() {
+    if (this.useGoogleSheets) {
+      return googleSheetsService.signOut()
+    }
+    return true
+  }
+
+  // Get authentication methods
+  getAuthMethods() {
+    return {
+      signOut: () => this.signOut(),
+      authenticate: () => googleSheetsService.authenticate(),
+      isAuthenticated: () => googleSheetsService.isUserAuthenticated(),
+      getStatus: () => googleSheetsService.getStatus()
+    }
   }
 }
 

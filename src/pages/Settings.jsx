@@ -1,5 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import googleSheetsService from '../services/googleSheets'
+import expenseService from '../services/expenseService'
+import localStorageService from '../services/localStorage'
 
 const Settings = () => {
   const [settings, setSettings] = useState({
@@ -9,37 +11,94 @@ const Settings = () => {
     currency: 'USD'
   })
 
-  const [customCategories, setCustomCategories] = useState([
-    'Food & Dining',
-    'Transportation',
-    'Shopping',
-    'Entertainment',
-    'Bills & Utilities',
-    'Healthcare',
-    'Travel',
-    'Other'
-  ])
-
+  const [customCategories, setCustomCategories] = useState([])
   const [newCategory, setNewCategory] = useState('')
   const [googleSheetsConnected, setGoogleSheetsConnected] = useState(false)
 
+  // Load settings on component mount
+  useEffect(() => {
+    const loadSettings = () => {
+      try {
+        const savedSettings = localStorageService.getSettings()
+        console.log('Loaded settings:', savedSettings)
+        
+        setSettings({
+          autoSync: savedSettings.autoSync || false,
+          notifications: savedSettings.notifications || true,
+          defaultCategory: savedSettings.defaultCategory || 'Other',
+          currency: savedSettings.defaultCurrency || 'USD'
+        })
+        
+        setCustomCategories(savedSettings.categories || [
+          'Food & Dining',
+          'Transportation',
+          'Shopping',
+          'Entertainment',
+          'Bills & Utilities',
+          'Healthcare',
+          'Travel',
+          'Other'
+        ])
+        
+        // Check Google Sheets connection status
+        setGoogleSheetsConnected(googleSheetsService.isUserAuthenticated())
+        
+      } catch (error) {
+        console.error('Error loading settings:', error)
+      }
+    }
+    
+    loadSettings()
+  }, [])
+
+  // Save settings whenever they change
+  const saveSettings = (newSettings, newCategories = null) => {
+    try {
+      const settingsToSave = {
+        autoSync: newSettings.autoSync,
+        notifications: newSettings.notifications,
+        defaultCategory: newSettings.defaultCategory,
+        defaultCurrency: newSettings.currency,
+        categories: newCategories || customCategories
+      }
+      
+      localStorageService.saveSettings(settingsToSave)
+      console.log('Settings saved:', settingsToSave)
+    } catch (error) {
+      console.error('Error saving settings:', error)
+    }
+  }
+
   const handleSettingChange = (e) => {
     const { name, value, type, checked } = e.target
-    setSettings({
+    const newSettings = {
       ...settings,
       [name]: type === 'checkbox' ? checked : value
-    })
+    }
+    setSettings(newSettings)
+    saveSettings(newSettings)
   }
 
   const addCategory = () => {
     if (newCategory.trim() && !customCategories.includes(newCategory.trim())) {
-      setCustomCategories([...customCategories, newCategory.trim()])
+      const updatedCategories = [...customCategories, newCategory.trim()]
+      setCustomCategories(updatedCategories)
+      saveSettings(settings, updatedCategories)
       setNewCategory('')
+      console.log('Added category:', newCategory.trim())
     }
   }
 
   const removeCategory = (categoryToRemove) => {
-    setCustomCategories(customCategories.filter(cat => cat !== categoryToRemove))
+    if (categoryToRemove === 'Other') {
+      alert('Cannot remove the "Other" category as it\'s used as a fallback.')
+      return
+    }
+    
+    const updatedCategories = customCategories.filter(cat => cat !== categoryToRemove)
+    setCustomCategories(updatedCategories)
+    saveSettings(settings, updatedCategories)
+    console.log('Removed category:', categoryToRemove)
   }
 
   const connectGoogleSheets = async () => {
@@ -60,8 +119,26 @@ const Settings = () => {
     }
   }
 
-  const disconnectGoogleSheets = () => {
-    setGoogleSheetsConnected(false)
+  const disconnectGoogleSheets = async () => {
+    try {
+      console.log('Signing out from Google Sheets...')
+      const success = await googleSheetsService.signOut()
+      
+      if (success) {
+        setGoogleSheetsConnected(false)
+        console.log('✅ Successfully signed out')
+        alert('Successfully signed out from Google Sheets')
+      } else {
+        console.warn('⚠️ Sign out completed with warnings')
+        setGoogleSheetsConnected(false)
+        alert('Signed out (with some warnings - check console)')
+      }
+    } catch (error) {
+      console.error('❌ Error during sign out:', error)
+      // Still clear the local state
+      setGoogleSheetsConnected(false)
+      alert('Sign out completed (local session cleared)')
+    }
   }
 
   return (
